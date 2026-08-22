@@ -1,0 +1,4 @@
+flower-buying-api.wright-flowers.workers.dev
+sheets.googleapis.com
+oauth2.googleapis.com
+www.googleapis.com

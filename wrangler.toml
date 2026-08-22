@@ -1,0 +1,10 @@
+name = "flower-buying-api"
+main = "worker/index.js"
+compatibility_date = "2025-08-01"
+
+[vars]
+APPS_SCRIPT_URL = "PASTE_THE_EXEC_URL_HERE"
+
+# Secrets — set with wrangler, never written in this file:
+#   wrangler secret put API_TOKEN
+#   wrangler secret put APPS_SCRIPT_TOKEN
