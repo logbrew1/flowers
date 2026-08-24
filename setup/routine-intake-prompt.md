@@ -40,14 +40,20 @@ it, continue, and note its absence once in Run_Log.
 ## Step 2 - collect new tickets from both sources
 
 SOURCE A - Google Drive
-List files in the intake folder. Each image or PDF is one ticket.
-Source id: drive:<fileId>
+Folder: "Flower Order Intake"
+Process every image or PDF directly inside it. Ignore the "processed"
+subfolder entirely - those are already done.
+Each file is one ticket. Source id: drive:<fileId>
 
 SOURCE B - Gmail
-Search for unread messages carrying ticket photos. Each message is one ticket;
-a message with several attachments is still one ticket unless the attachments
-are plainly separate orders.
+Search query: label:flowers/intake -label:flowers/processed
+Each matching message is one ticket. A message with several attachments is
+still one ticket unless the attachments are plainly separate orders.
 Source id: gmail:<messageId>
+
+If a source's folder or label does not exist, do not create it and do not
+substitute another one. Record the problem in Run_Log and process the other
+source normally.
 
 If both sources are empty, write a Run_Log row saying so and stop. An idle run
 is a success, not a failure.
