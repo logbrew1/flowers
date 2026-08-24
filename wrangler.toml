@@ -1,10 +1,25 @@
 name = "flower-buying-api"
 main = "worker/index.js"
-compatibility_date = "2025-08-01"
+compatibility_date = "2026-08-19"
+
+# No public preview URLs; the only front door is the production route.
+preview_urls = false
 
 [vars]
-APPS_SCRIPT_URL = "PASTE_THE_EXEC_URL_HERE"
+# Not a secret: the script rejects any request whose token does not match its
+# SHARED_TOKEN property, so this URL is useless on its own. It lives here rather
+# than only in the dashboard because a placeholder in this file will silently
+# overwrite the live value on the next `wrangler deploy`.
+APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyiJmhkm93DkhYXY78BNND9X5x_UtTNgFEciPItuI0TWd0he_Cq8IHebK1UHErCweM/exec"
 
-# Secrets — set with wrangler, never written in this file:
+# Keep logs on. They are the only record of the transient
+# 302 -> googleusercontent stumbles that the Worker now retries through.
+[observability]
+enabled = true
+
+[observability.logs]
+enabled = true
+
+# Secrets - set with wrangler, never written in this file:
 #   wrangler secret put API_TOKEN
 #   wrangler secret put APPS_SCRIPT_TOKEN
