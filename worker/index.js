@@ -47,16 +47,16 @@ function statusFor(payload) {
   }
 }
 
-async function callAppsScript(env, body) {
-  if (!env.APPS_SCRIPT_URL) {
-    return { ok: false, layer: 'worker', code: 'NO_SCRIPT_URL',
-             error: 'APPS_SCRIPT_URL var is not configured on the Worker' };
-  }
-  if (!env.APPS_SCRIPT_TOKEN) {
-    return { ok: false, layer: 'worker', code: 'NO_SCRIPT_TOKEN',
-             error: 'APPS_SCRIPT_TOKEN secret is not configured on the Worker' };
-  }
+// A request is safe to send twice when the script can recognize the repeat:
+// appends carry a requestId and are deduped, pings and dry runs write nothing.
+function isIdempotent(body) {
+  if (!body || typeof body !== 'object') return false;
+  if (body.action === 'ping') return true;
+  if (body.dryRun === true) return true;
+  return typeof body.requestId === 'string' && body.requestId.length > 0;
+}
 
+async function attemptAppsScript(env, body) {
   let res;
   try {
     res = await fetch(env.APPS_SCRIPT_URL, {
@@ -74,15 +74,47 @@ async function callAppsScript(env, body) {
   try {
     return JSON.parse(text);
   } catch {
-    // Almost always means APPS_SCRIPT_URL points at a stale or wrong deployment:
-    // Google served an HTML error page instead of the script's JSON.
+    // Google served HTML instead of the script's JSON. Two very different
+    // causes look identical here: a misconfigured APPS_SCRIPT_URL (every call
+    // fails), or a transient stumble in the 302 -> googleusercontent hop (the
+    // script already ran, and may already have written). `preview` is what
+    // tells them apart, so it must reach the caller.
     return {
       ok: false, layer: 'worker', code: 'NON_JSON_FROM_SCRIPT',
-      error: `Apps Script returned ${res.status} but not JSON — check that ` +
-             `APPS_SCRIPT_URL is the current deployment and access is "Anyone"`,
+      error: `Apps Script returned ${res.status} but not JSON. If this is ` +
+             `persistent, check that APPS_SCRIPT_URL is the current ` +
+             `deployment and access is "Anyone". If it is intermittent, the ` +
+             `script may have run anyway - re-send the same requestId and ` +
+             `the reply will say deduped.`,
       preview: text.slice(0, 200),
     };
   }
+}
+
+const RETRYABLE = new Set(['NON_JSON_FROM_SCRIPT', 'FETCH_FAILED']);
+
+async function callAppsScript(env, body) {
+  if (!env.APPS_SCRIPT_URL) {
+    return { ok: false, layer: 'worker', code: 'NO_SCRIPT_URL',
+             error: 'APPS_SCRIPT_URL var is not configured on the Worker' };
+  }
+  if (!env.APPS_SCRIPT_TOKEN) {
+    return { ok: false, layer: 'worker', code: 'NO_SCRIPT_TOKEN',
+             error: 'APPS_SCRIPT_TOKEN secret is not configured on the Worker' };
+  }
+
+  // The transport stumbles occasionally. Absorb that here rather than making
+  // every caller reason about whether a half-failed write landed - but only
+  // when a repeat is genuinely harmless.
+  const attempts = isIdempotent(body) ? 3 : 1;
+  let last;
+  for (let i = 0; i < attempts; i++) {
+    last = await attemptAppsScript(env, body);
+    if (last.ok || !RETRYABLE.has(last.code)) return last;
+    if (i < attempts - 1) await new Promise(r => setTimeout(r, 400 * (i + 1)));
+  }
+  if (attempts > 1) last.retriedTimes = attempts - 1;
+  return last;
 }
 
 export default {

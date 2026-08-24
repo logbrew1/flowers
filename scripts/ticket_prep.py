@@ -66,9 +66,49 @@ def looks_like_base64(path):
     return bool(stripped) and set(stripped) <= allowed
 
 
+def unwrap_json(path, workdir):
+    """Drive's download returns base64 inside a JSON envelope. Pull it out.
+
+    The envelope's shape varies by connector, so rather than hardcoding a key,
+    take the longest base64-looking string anywhere in the structure - the file
+    payload dwarfs any id or mime-type field beside it.
+    """
+    with open(path, "rb") as fh:
+        head = fh.read(1).strip()
+    if head not in (b"{", b"["):
+        return path
+    try:
+        with open(path, "r") as fh:
+            doc = json.load(fh)
+    except (ValueError, UnicodeDecodeError):
+        return path
+
+    best = ""
+    stack = [doc]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            stack.extend(node.values())
+        elif isinstance(node, list):
+            stack.extend(node)
+        elif isinstance(node, str) and len(node) > len(best):
+            compact = "".join(node.split())
+            allowed = set(
+                "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/="
+            )
+            if len(compact) > 256 and set(compact) <= allowed:
+                best = compact
+    if not best:
+        return path
+    out = os.path.join(workdir, "unwrapped.b64")
+    with open(out, "w") as fh:
+        fh.write(best)
+    return out
+
+
 def materialize(src, workdir):
     """Return a real image path, decoding base64 and rasterizing PDF as needed."""
-    path = src
+    path = unwrap_json(src, workdir)
     if looks_like_base64(path):
         with open(path, "r") as fh:
             data = base64.b64decode(fh.read(), validate=False)

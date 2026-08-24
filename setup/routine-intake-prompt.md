@@ -107,11 +107,15 @@ fresh requestId to "get past" a duplicate - that defeats the only protection
 against double entry.
 
 Event ID format: EV-YYYYMMDD-LASTNAME (event date, customer surname, uppercase).
+If the ticket has no usable event date, use EV-UNKNOWN-LASTNAME and raise a
+Needs_Review row. Do not invent a date to satisfy the format, and do not
+substitute today's date.
 
 Reading the ticket image - do this in exactly three calls:
 
-1. Download the file to disk. The Drive connector returns base64; write it to a
-   file as-is and do not decode it yourself.
+1. Download the file and write the connector's response to disk exactly as it
+   came back - JSON envelope, base64, raw bytes, whatever it is. Do not unwrap,
+   decode or inspect it. The script detects and handles all three.
 2. Run the prep script from the cloned repo:
 
        python3 scripts/ticket_prep.py <downloaded-file> /tmp/ticket-<id> --bands 4
@@ -141,6 +145,11 @@ Parsing rules:
 - Flag: blank quantities or units, illegible text, references to material you
   cannot see ("pic sent to cell"), crossed-out entries, empty sections, anything
   cropped out of frame, and any event type the sheet does not already use.
+- Needs_Review is for THIS TICKET. A gap in the Buying Rules doc or a missing
+  sheet column is not a property of the ticket - it will be just as true next
+  time, and filing it per ticket buries the real flags under the same three
+  rows every run. Note those once in Run_Log errors instead, and say plainly in
+  your summary that they need a human to fix the config.
 
 ## Step 4 - validate, then write
 
@@ -163,6 +172,16 @@ If the dry run passes, POST the identical payload without dryRun:
 }
 
 Write every event with status "Pending". Nothing you record is approved to buy.
+
+If the write returns NON_JSON_FROM_SCRIPT or FETCH_FAILED, the Worker has
+already retried it for you. The script may still have run and written before the
+reply was lost, so do not try to work out what landed by counting rows.
+
+Re-POST the identical payload, requestId included. The answer is unambiguous:
+deduped: true means it had already landed, ok: true means it had not and now
+has. Either way you are done. Report the `preview` field verbatim in your
+summary if one is present - it is the only evidence of what Google actually
+returned, and it distinguishes a transient stumble from a broken deployment.
 
 ## Step 5 - mark the source processed
 
