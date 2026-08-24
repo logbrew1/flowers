@@ -3,3 +3,7 @@ node_modules/
 .wrangler/
 *.log
 .DS_Store
+
+# Real order tickets carry customer names and phone numbers. They belong in the
+# sheet, not in git - fulton_*.json had to be filtered out of history once.
+orders/
