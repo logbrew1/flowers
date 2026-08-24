@@ -24,7 +24,7 @@ search for on every single run.
     BUYING_RULES_DOC_ID   1njvI3b9j2EwxucRQSPTTrDkT1Pz_WAO8RpjoYltN5V8
     INTAKE_FOLDER_ID      1Rcq0_czNYR193kZinqXnbAOyR-9u12lo
     PROCESSED_FOLDER_ID   1MAE7Idcp2MwNhlhReQK4qJ0Twdpe1mHM
-    SKILLS                order-paper-colors
+    SKILLS                order-paper-colors, bridal-shoot-defaults
 
 If an ID above is still a placeholder, resolve it by name once, use it, and
 print the real ID in your closing summary so it can be pinned. Do not re-derive
