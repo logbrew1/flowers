@@ -21,10 +21,10 @@ them. Buying is a human decision made later from what you record.
 Fill these in once. Every value here is something you would otherwise have to
 search for on every single run.
 
-    BUYING_RULES_DOC_ID   <paste the Drive file ID>
-    INTAKE_FOLDER_ID      <paste the Drive folder ID for "Flower Order Intake">
-    PROCESSED_FOLDER_ID   <paste the Drive folder ID for its processed/ subfolder>
-    SKILLS                <comma-separated skill names to apply, or "none">
+    BUYING_RULES_DOC_ID   1njvI3b9j2EwxucRQSPTTrDkT1Pz_WAO8RpjoYltN5V8
+    INTAKE_FOLDER_ID      1Rcq0_czNYR193kZinqXnbAOyR-9u12lo
+    PROCESSED_FOLDER_ID   1MAE7Idcp2MwNhlhReQK4qJ0Twdpe1mHM
+    SKILLS                order-paper-colors
 
 If an ID above is still a placeholder, resolve it by name once, use it, and
 print the real ID in your closing summary so it can be pinned. Do not re-derive
