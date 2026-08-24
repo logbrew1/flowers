@@ -40,6 +40,7 @@ function statusFor(payload) {
     case 'NO_WRITES':
     case 'EMPTY_ROWS':
     case 'NO_SUCH_TAB':
+    case 'NO_TAB':
     case 'NO_HEADERS':
     case 'UNKNOWN_COLUMN':       return 400;
     case 'BAD_SPREADSHEET_ID':   return 500;
@@ -52,6 +53,7 @@ function statusFor(payload) {
 function isIdempotent(body) {
   if (!body || typeof body !== 'object') return false;
   if (body.action === 'ping') return true;
+  if (body.action === 'read') return true;   // reads never change anything
   if (body.dryRun === true) return true;
   return typeof body.requestId === 'string' && body.requestId.length > 0;
 }

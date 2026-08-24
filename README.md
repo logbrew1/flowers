@@ -41,6 +41,16 @@ return 200, and the Worker translates. Errors carry `layer` and `code`.
 from the **source object** (drive file id, gmail message id), never from the
 order, because marking a source processed and writing rows cannot be atomic.
 
+`action:"read"` gets rows back out - the buying stage groups and prices what
+intake wrote, and `ping` only ever returned row counts. Takes `tab`, optional
+`where` (exact match, case-insensitive), `limit`, `offset`; returns rows keyed by
+the same normalized header names that `append` accepts, plus `_row`, `total` and
+`more`.
+
+```json
+{"action":"read","tab":"Events","where":{"status":"Pending"},"limit":500}
+```
+
 `dryRun: true` validates auth, tabs and columns without writing.
 `GET /health` returns live headers plus the deployed script version.
 `GET /whoami` reports which Apps Script deployment the Worker points at.
@@ -56,6 +66,8 @@ order, because marking a source processed and writing rows cannot be atomic.
 | `setup/intake-task-prompt.md` | interactive intake with human readback |
 | `setup/connectivity-test-prompt.md` | one-shot diagnostic |
 | `setup/allowed-domains.txt` | for the cloud environment allowlist |
+| `setup/buying-schema.md` | tabs the buying stage needs; Products first |
+| `scripts/ticket_prep.py` | one-pass ticket image prep for transcription |
 | `future/service-account/` | Worker that talks to Sheets directly, no Apps Script |
 
 ## Configuration

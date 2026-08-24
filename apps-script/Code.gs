@@ -12,8 +12,10 @@
  * Callers must branch on `ok`, never on the HTTP code.
  */
 
-var VERSION = 'wfc-2026-08-21-b';
+var VERSION = 'wfc-2026-08-24-a';
 var LOG_TAB = '_Writes_Log';
+var DEFAULT_READ_LIMIT = 500;
+var MAX_READ_LIMIT = 2000;
 
 function reply_(obj) {
   return ContentService
@@ -81,6 +83,83 @@ function doPost(e) {
       });
       return reply_({ ok: true, layer: 'apps_script', version: VERSION, action: 'ping',
                       spreadsheet: ss.getName(), tabs: tabs });
+    }
+
+    // The buying stage is read-then-compute: it groups what intake wrote and
+    // prices it. Until now the pipeline was write-only - ping returns row
+    // COUNTS, not rows - so there was no way to get anything back out.
+    if (action === 'read') {
+      if (!body.tab) {
+        return fail_('NO_TAB', 'read requires a tab name');
+      }
+      var rsheet = ss.getSheetByName(body.tab);
+      if (!rsheet) {
+        return fail_('NO_SUCH_TAB', 'no tab named "' + body.tab + '"');
+      }
+      var rheaders = headersOf_(rsheet);
+      if (!rheaders.length) {
+        return fail_('NO_HEADERS', 'tab "' + body.tab + '" has no header row');
+      }
+
+      // Keys are the normalized header names, so a row read back looks exactly
+      // like a row written in - same spelling, same casing, both directions.
+      var keys = rheaders.map(normalize_);
+
+      var where = body.where || {};
+      var filters = [];
+      for (var wk in where) {
+        if (!where.hasOwnProperty(wk)) continue;
+        var idx = keys.indexOf(normalize_(wk));
+        if (idx === -1) {
+          return fail_('UNKNOWN_COLUMN',
+            'tab "' + body.tab + '" has no column "' + wk + '"');
+        }
+        filters.push({ index: idx, want: String(where[wk]).trim().toLowerCase() });
+      }
+
+      var lastRow = rsheet.getLastRow();
+      if (lastRow < 2) {
+        return reply_({ ok: true, layer: 'apps_script', version: VERSION,
+                        action: 'read', tab: body.tab, headers: rheaders,
+                        rows: [], total: 0, returned: 0, offset: 0 });
+      }
+
+      var values = rsheet.getRange(2, 1, lastRow - 1, rheaders.length).getValues();
+      var matched = [];
+      for (var r = 0; r < values.length; r++) {
+        var keep = true;
+        for (var f = 0; f < filters.length; f++) {
+          if (String(values[r][filters[f].index]).trim().toLowerCase() !== filters[f].want) {
+            keep = false;
+            break;
+          }
+        }
+        if (!keep) continue;
+        var obj = { _row: r + 2 };
+        for (var c = 0; c < keys.length; c++) {
+          var cell = values[r][c];
+          // Dates would otherwise serialize as an opaque timestamp object.
+          obj[keys[c]] = (cell instanceof Date)
+            ? Utilities.formatDate(cell, Session.getScriptTimeZone(), 'yyyy-MM-dd')
+            : cell;
+        }
+        matched.push(obj);
+      }
+
+      // Cap the payload. A whole tab can outgrow what the response can carry,
+      // and a truncated JSON body fails in a way that looks like a transport
+      // bug rather than a size problem.
+      var offset = Math.max(0, parseInt(body.offset, 10) || 0);
+      var limit = parseInt(body.limit, 10);
+      if (!(limit > 0)) limit = DEFAULT_READ_LIMIT;
+      if (limit > MAX_READ_LIMIT) limit = MAX_READ_LIMIT;
+      var page = matched.slice(offset, offset + limit);
+
+      return reply_({ ok: true, layer: 'apps_script', version: VERSION,
+                      action: 'read', tab: body.tab, headers: rheaders,
+                      rows: page, total: matched.length, returned: page.length,
+                      offset: offset,
+                      more: offset + page.length < matched.length });
     }
 
     if (action !== 'append') {
